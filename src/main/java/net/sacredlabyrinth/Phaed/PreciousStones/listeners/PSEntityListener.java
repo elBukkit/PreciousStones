@@ -1303,4 +1303,23 @@ public class PSEntityListener implements Listener {
             event.setCancelled(true);
         }
     }
+	
+    /**
+     * @param event
+     */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerLeash(PlayerLeashEntityEvent event){
+        if(event.isCancelled()) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+        Field field = plugin.getForceFieldManager().getEnabledSourceField(player.getLocation(), FieldFlag.PROTECT_ANIMALS);
+
+        if(field != null){
+            if(FieldFlag.PROTECT_ANIMALS.applies(field, player)){
+                event.setCancelled(true);
+            }
+        }
+    }
 }
