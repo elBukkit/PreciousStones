@@ -586,6 +586,7 @@ settings:
   prevent-removal-if-player-in-field: true
   public-block-details: false
   show-debug-info: false
+  allow-custom-spawn: false
   show-default-welcome-farewell-messages: true
   sneak-to-place-field: false
   sneak-to-place-normal-block: true

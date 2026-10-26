@@ -158,6 +158,9 @@ public class PSEntityListener implements Listener {
         if (event.isCancelled()) {
             return;
         }
+        if (plugin.getSettingsManager().isAllowCustomSpawn() && event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.CUSTOM) {
+            return;
+        }
 
         Entity entity = event.getEntity();
         Location loc = event.getLocation();

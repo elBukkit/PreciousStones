@@ -131,6 +131,7 @@ public final class SettingsManager {
     private boolean offByDefault;
     private boolean useIdInSnitches;
     private boolean usePermissionBasedLimits;
+    private boolean allowCustomSpawn;
     private int fenceMaxDepth;
     private Material[] throughFields = new Material[]{Material.AIR, Material.OAK_SAPLING, Material.WATER, Material.LAVA, 
     		Material.DEAD_BUSH, Material.DANDELION, Material.POPPY, Material.BROWN_MUSHROOM, Material.RED_MUSHROOM, Material.TORCH, Material.SOUL_TORCH, Material.REDSTONE_TORCH, 
@@ -294,6 +295,7 @@ public final class SettingsManager {
         disableBreakWhileCreative = loadBoolean("settings.disable-field-break-while-creative");
         preventBreakingHidden = loadBoolean("settings.prevent-breaking-hidden");
         usePermissionBasedLimits = loadBoolean("settings.use-permission-based-limits");
+        allowCustomSpawn = loadBoolean("allow-custom-spawn");
 
         // ********************************** Cuboid
 
@@ -1707,6 +1709,10 @@ public final class SettingsManager {
 
     public boolean isPreventBreakingHidden() {
         return preventBreakingHidden;
+    }
+
+    public boolean isAllowCustomSpawn() {
+        return allowCustomSpawn;
     }
 
     /**
