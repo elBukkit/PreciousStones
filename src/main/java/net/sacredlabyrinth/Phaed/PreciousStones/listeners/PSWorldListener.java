@@ -3,18 +3,15 @@ package net.sacredlabyrinth.Phaed.PreciousStones.listeners;
 import net.sacredlabyrinth.Phaed.PreciousStones.PreciousStones;
 import net.sacredlabyrinth.Phaed.PreciousStones.field.Field;
 import net.sacredlabyrinth.Phaed.PreciousStones.field.FieldFlag;
-import net.sacredlabyrinth.Phaed.PreciousStones.vectors.ChunkVec;
+
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,24 +27,6 @@ public class PSWorldListener implements Listener {
      */
     public PSWorldListener() {
         plugin = PreciousStones.getInstance();
-    }
-
-    /**
-     * @param event
-     */
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onChunkUnload(ChunkUnloadEvent event) {
-        World world = event.getWorld();
-
-        if (plugin.getSettingsManager().isBlacklistedWorld(world)) {
-            return;
-        }
-
-        List<Field> fields = plugin.getForceFieldManager().getSourceFieldsInChunk(new ChunkVec(event.getChunk()), FieldFlag.KEEP_CHUNKS_LOADED);
-        // todo find location where it should be marked
-        if (!fields.isEmpty()) {
-            // event.setCancelled(true);
-        }
     }
 
     /**
