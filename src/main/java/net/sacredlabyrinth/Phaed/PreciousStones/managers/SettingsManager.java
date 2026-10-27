@@ -531,9 +531,7 @@ public final class SettingsManager {
     }
 
     public boolean isHarmfulPotion(PotionEffectType pot) {
-        NamespacedKey typeKey = pot.getKeyOrNull();
-        if (typeKey == null) return false;
-        String type = typeKey.getKey();
+        String type = pot.getName().toLowerCase();
 
         return (type.equals("blindness") ||
                 type.equals("confusion") ||
