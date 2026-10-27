@@ -19,6 +19,7 @@ import net.sacredlabyrinth.Phaed.PreciousStones.uuid.UUIDMigration;
 import net.sacredlabyrinth.Phaed.PreciousStones.vectors.Vec;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -108,6 +109,11 @@ public class StorageManager {
             if (isMySql && settings.getVersion() < 12) {
                 creator.resetLastSeen();
                 settings.setVersion(12);
+            }
+
+            if (settings.getVersion() < 15) {
+                creator.addType();
+                settings.setVersion(15);
             }
         }
         return core;
@@ -378,10 +384,11 @@ public class StorageManager {
      */
     public List<Field> getFields(Connection conn, String worldName) throws SQLException {
         List<Field> out = new ArrayList<>();
+        Map<Integer, Material> migrate = new HashMap<>();
         boolean foundInWrongTable = false;
 
         try (PreparedStatement prepStmt = conn.prepareStatement(
-                        "SELECT pstone_fields.id as id, x, y, z, radius, height, type_id, "
+                        "SELECT pstone_fields.id as id, x, y, z, radius, height, type_id, type, "
                                 + "data, velocity, world, owner, name, packed_allowed, last_used, flags "
                                 + "FROM pstone_fields WHERE world = ?")) {
             prepStmt.setString(1, worldName);
@@ -396,6 +403,7 @@ public class StorageManager {
                         int radius = resultSet.getInt("radius");
                         int height = resultSet.getInt("height");
                         int type_id = resultSet.getInt("type_id");
+                        String typeKey = resultSet.getString("type");
                         float velocity = resultSet.getFloat("velocity");
                         String world = resultSet.getString("world");
                         String owner = resultSet.getString("owner");
@@ -404,7 +412,14 @@ public class StorageManager {
                         String packed_allowed = resultSet.getString("packed_allowed");
                         long last_used = resultSet.getLong("last_used");
 
-                        BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
+                        Material material;
+                        if (typeKey == null || typeKey.isEmpty()) {
+                            material = Helper.getMaterial(type_id);
+                            migrate.put(type_id, material);
+                        } else {
+                            material = Helper.getMaterial(typeKey);
+                        }
+                        BlockTypeEntry type = new BlockTypeEntry(material);
 
                         Field field = new Field(x, y, z, radius, height, velocity, world, type, owner, name, last_used);
                         field.setPackedAllowed(packed_allowed);
@@ -436,6 +451,7 @@ public class StorageManager {
                 }
             }
 
+            migrateMaterials(conn, "pstone_fields", migrate);
         }
 
         if (foundInWrongTable) {
@@ -455,127 +471,145 @@ public class StorageManager {
     public Collection<Field> getCuboidFields(Connection conn, String worldName) throws SQLException {
         HashMap<Long, Field> out = new HashMap<>();
         boolean foundInWrongTable = false;
+        Map<Integer, Material> migrate = new HashMap<>();
 
         try (PreparedStatement prepStmt = conn.prepareStatement(
                 "SELECT pstone_cuboids.id as id, x, y, z, minx, miny, minz, maxx, maxy, maxz, "
-                + "type_id, data, velocity, world, owner, name, packed_allowed, last_used, flags "
+                + "type_id, type, data, velocity, world, owner, name, packed_allowed, last_used, flags "
                 + "FROM  pstone_cuboids WHERE pstone_cuboids.parent = 0 AND world = ?")) {
-        prepStmt.setString(1, worldName);
+            prepStmt.setString(1, worldName);
 
-        try (ResultSet resultSet = prepStmt.executeQuery()) {
-            while (resultSet.next()) {
-                try {
-                    long id = resultSet.getLong("id");
-                    int x = resultSet.getInt("x");
-                    int y = resultSet.getInt("y");
-                    int z = resultSet.getInt("z");
-                    int minx = resultSet.getInt("minx");
-                    int miny = resultSet.getInt("miny");
-                    int minz = resultSet.getInt("minz");
-                    int maxx = resultSet.getInt("maxx");
-                    int maxy = resultSet.getInt("maxy");
-                    int maxz = resultSet.getInt("maxz");
-                    int type_id = resultSet.getInt("type_id");
-                    float velocity = resultSet.getFloat("velocity");
-                    String world = resultSet.getString("world");
-                    String owner = resultSet.getString("owner");
-                    String name = resultSet.getString("name");
-                    String flags = resultSet.getString("flags");
-                    String packed_allowed = resultSet.getString("packed_allowed");
-                    long last_used = resultSet.getLong("last_used");
+            try (ResultSet resultSet = prepStmt.executeQuery()) {
+                while (resultSet.next()) {
+                    try {
+                        long id = resultSet.getLong("id");
+                        int x = resultSet.getInt("x");
+                        int y = resultSet.getInt("y");
+                        int z = resultSet.getInt("z");
+                        int minx = resultSet.getInt("minx");
+                        int miny = resultSet.getInt("miny");
+                        int minz = resultSet.getInt("minz");
+                        int maxx = resultSet.getInt("maxx");
+                        int maxy = resultSet.getInt("maxy");
+                        int maxz = resultSet.getInt("maxz");
+                        int type_id = resultSet.getInt("type_id");
+                        String typeKey = resultSet.getString("type");
+                        float velocity = resultSet.getFloat("velocity");
+                        String world = resultSet.getString("world");
+                        String owner = resultSet.getString("owner");
+                        String name = resultSet.getString("name");
+                        String flags = resultSet.getString("flags");
+                        String packed_allowed = resultSet.getString("packed_allowed");
+                        long last_used = resultSet.getLong("last_used");
 
-                    BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
-
-                    Field field = new Field(x, y, z, minx, miny, minz, maxx, maxy, maxz, velocity, world, type, owner, name, last_used);
-                    field.setPackedAllowed(packed_allowed);
-                    field.setId(id);
-
-                    FieldSettings fs = plugin.getSettingsManager().getFieldSettings(field);
-
-                    if (fs != null) {
-                        field.setSettings(fs);
-                        field.getFlagsModule().setFlags(flags);
-
-                        if (fs.getAutoDisableTime() > 0) {
-                            field.setDisabled(true, true);
+                        Material material;
+                        if (typeKey == null || typeKey.isEmpty()) {
+                            material = Helper.getMaterial(type_id);
+                            migrate.put(type_id, material);
+                        } else {
+                            material = Helper.getMaterial(typeKey);
                         }
+                        BlockTypeEntry type = new BlockTypeEntry(material);
 
-                        out.put(id, field);
+                        Field field = new Field(x, y, z, minx, miny, minz, maxx, maxy, maxz, velocity, world, type, owner, name, last_used);
+                        field.setPackedAllowed(packed_allowed);
+                        field.setId(id);
 
-                        // check for fields in the wrong table
+                        FieldSettings fs = plugin.getSettingsManager().getFieldSettings(field);
 
-                        if (!fs.hasDefaultFlag(FieldFlag.CUBOID)) {
-                            deleteFieldFromBothTables(conn, field);
-                            insertField0(conn, field);
-                            foundInWrongTable = true;
+                        if (fs != null) {
+                            field.setSettings(fs);
+                            field.getFlagsModule().setFlags(flags);
+
+                            if (fs.getAutoDisableTime() > 0) {
+                                field.setDisabled(true, true);
+                            }
+
+                            out.put(id, field);
+
+                            // check for fields in the wrong table
+
+                            if (!fs.hasDefaultFlag(FieldFlag.CUBOID)) {
+                                deleteFieldFromBothTables(conn, field);
+                                insertField0(conn, field);
+                                foundInWrongTable = true;
+                            }
                         }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
                 }
             }
         }
-    }
-    try (PreparedStatement prepStmt = conn.prepareStatement(
+        try (PreparedStatement prepStmt = conn.prepareStatement(
             "SELECT pstone_cuboids.id as id, parent, x, y, z, minx, miny, minz, maxx, maxy, maxz, "
-            + "type_id, data, velocity, world, owner, name, packed_allowed, last_used, flags "
+            + "type_id, type, data, velocity, world, owner, name, packed_allowed, last_used, flags "
             + "FROM pstone_cuboids WHERE pstone_cuboids.parent > 0 AND world = ?")) {
-        prepStmt.setString(1, worldName);
+            prepStmt.setString(1, worldName);
 
-        try (ResultSet resultSet = prepStmt.executeQuery()) {
-            while (resultSet.next()) {
-                try {
-                    long id = resultSet.getLong("id");
-                    long parent = resultSet.getLong("parent");
-                    int x = resultSet.getInt("x");
-                    int y = resultSet.getInt("y");
-                    int z = resultSet.getInt("z");
-                    int minx = resultSet.getInt("minx");
-                    int miny = resultSet.getInt("miny");
-                    int minz = resultSet.getInt("minz");
-                    int maxx = resultSet.getInt("maxx");
-                    int maxy = resultSet.getInt("maxy");
-                    int maxz = resultSet.getInt("maxz");
-                    int type_id = resultSet.getInt("type_id");
-                    float velocity = resultSet.getFloat("velocity");
-                    String world = resultSet.getString("world");
-                    String owner = resultSet.getString("owner");
-                    String name = resultSet.getString("name");
-                    String flags = resultSet.getString("flags");
-                    String packed_allowed = resultSet.getString("packed_allowed");
-                    long last_used = resultSet.getLong("last_used");
+            try (ResultSet resultSet = prepStmt.executeQuery()) {
+                while (resultSet.next()) {
+                    try {
+                        long id = resultSet.getLong("id");
+                        long parent = resultSet.getLong("parent");
+                        int x = resultSet.getInt("x");
+                        int y = resultSet.getInt("y");
+                        int z = resultSet.getInt("z");
+                        int minx = resultSet.getInt("minx");
+                        int miny = resultSet.getInt("miny");
+                        int minz = resultSet.getInt("minz");
+                        int maxx = resultSet.getInt("maxx");
+                        int maxy = resultSet.getInt("maxy");
+                        int maxz = resultSet.getInt("maxz");
+                        int type_id = resultSet.getInt("type_id");
+                        String typeKey = resultSet.getString("type");
+                        float velocity = resultSet.getFloat("velocity");
+                        String world = resultSet.getString("world");
+                        String owner = resultSet.getString("owner");
+                        String name = resultSet.getString("name");
+                        String flags = resultSet.getString("flags");
+                        String packed_allowed = resultSet.getString("packed_allowed");
+                        long last_used = resultSet.getLong("last_used");
 
-                    BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
+                        Material material;
+                        if (typeKey == null || typeKey.isEmpty()) {
+                            material = Helper.getMaterial(type_id);
+                            migrate.put(type_id, material);
+                        } else {
+                            material = Helper.getMaterial(typeKey);
+                        }
+                        BlockTypeEntry type = new BlockTypeEntry(material);
 
-                    Field field = new Field(x, y, z, minx, miny, minz, maxx, maxy, maxz, velocity, world, type, owner, name, last_used);
-                    field.setPackedAllowed(packed_allowed);
+                        Field field = new Field(x, y, z, minx, miny, minz, maxx, maxy, maxz, velocity, world, type, owner, name, last_used);
+                        field.setPackedAllowed(packed_allowed);
 
-                    Field parentField = out.get(parent);
+                        Field parentField = out.get(parent);
 
-                    if (parentField != null) {
-                        field.setParent(parentField);
-                        parentField.addChild(field);
-                    } else {
-                        field.markForDeletion();
-                        offerField(field);
+                        if (parentField != null) {
+                            field.setParent(parentField);
+                            parentField.addChild(field);
+                        } else {
+                            field.markForDeletion();
+                            offerField(field);
+                        }
+
+                        field.setId(id);
+
+                        FieldSettings fs = plugin.getSettingsManager().getFieldSettings(field);
+
+                        if (fs != null) {
+                            field.setSettings(fs);
+                            field.getFlagsModule().setFlags(flags);
+                            out.put(id, field);
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
-
-                    field.setId(id);
-
-                    FieldSettings fs = plugin.getSettingsManager().getFieldSettings(field);
-
-                    if (fs != null) {
-                        field.setSettings(fs);
-                        field.getFlagsModule().setFlags(flags);
-                        out.put(id, field);
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
                 }
             }
         }
-    }
 
+        migrateMaterials(conn, "pstone_cuboids", migrate);
         if (foundInWrongTable) {
             PreciousStones.log("fieldsInWrongTable");
         }
@@ -746,6 +780,7 @@ public class StorageManager {
      */
     private List<Unbreakable> getUnbreakables(String worldName) {
         List<Unbreakable> out = new ArrayList<>();
+        Map<Integer, Material> migrate = new HashMap<>();
 
         try (Connection conn = getConnection();
                 PreparedStatement prepStmt = conn.prepareStatement("SELECT * FROM  `pstone_unbreakables` WHERE world = ?")) {
@@ -759,10 +794,18 @@ public class StorageManager {
                         int y = resultSet.getInt("y");
                         int z = resultSet.getInt("z");
                         int type_id = resultSet.getInt("type_id");
+                        String typeKey = resultSet.getString("type");
                         String world = resultSet.getString("world");
                         String owner = resultSet.getString("owner");
 
-                        BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
+                        Material material;
+                        if (typeKey == null || typeKey.isEmpty()) {
+                            material = Helper.getMaterial(type_id);
+                            migrate.put(type_id, material);
+                        } else {
+                            material = Helper.getMaterial(typeKey);
+                        }
+                        BlockTypeEntry type = new BlockTypeEntry(material);
 
                         Unbreakable ub = new Unbreakable(x, y, z, world, type, owner);
 
@@ -770,10 +813,34 @@ public class StorageManager {
                     }
                 }
             }
+            migrateMaterials(conn, "pstone_unbreakables", migrate);
         } catch (SQLException ex) {
             ex.printStackTrace();
         }
         return out;
+    }
+
+    private void migrateMaterials(Connection conn, String table, Map<Integer, Material> migrate) throws SQLException {
+        if (migrate.isEmpty()) {
+            return;
+        }
+
+        PreciousStones.getLog().info("Migrating " + migrate.size() + " materials in " + table);
+        PreparedStatement prepStmt = conn.prepareStatement("UPDATE `" + table + "` SET type = ? WHERE type_id = ?");
+
+        synchronized (this) {
+            for (Map.Entry<Integer, Material> entry : migrate.entrySet()) {
+                int typeId = entry.getKey();
+                Material material = entry.getValue();
+                if (material == null) {
+                    PreciousStones.getLog().warning("Error migrating material from type id " + typeId);
+                    continue;
+                }
+                prepStmt.setString(1, Helper.getMaterialName(material));
+                prepStmt.setInt(2, typeId);
+                prepStmt.execute();
+            }
+        }
     }
 
     private void updateGrief(Connection conn, Field field) throws SQLException {
@@ -881,7 +948,7 @@ public class StorageManager {
         Object[] parameters;
         if (field.hasFlag(FieldFlag.CUBOID)) {
             query = "INSERT INTO `pstone_cuboids` (`parent`, `x`, `y`, `z`, `world`, `minx`, `miny`, `minz`, "
-                    + "`maxx`, `maxy`, `maxz`, `velocity`, `type_id`, `data`, `owner`, `name`, `packed_allowed`, "
+                    + "`maxx`, `maxy`, `maxz`, `velocity`, `type`, `data`, `owner`, `name`, `packed_allowed`, "
                     + "`last_used`, `flags`) " + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             parameters = new Object[] {
                     ((field.getParent() == null) ? 0 : field.getParent().getId()),
@@ -889,16 +956,16 @@ public class StorageManager {
                     field.getWorld(),
                     field.getMinx(), field.getMiny(), field.getMinz(),
                     field.getMaxx(), field.getMaxy(), field.getMaxz(),
-                    field.getVelocity(), Helper.getMaterialId(field.getMaterial()), 0, field.getOwner(), field.getName(),
+                    field.getVelocity(), Helper.getMaterialName(field.getMaterial()), 0, field.getOwner(), field.getName(),
                     field.getPackedAllowed(), Helper.getMillis(), field.getFlagsModule().getFlagsAsString()
             };
         } else {
             query = "INSERT INTO `pstone_fields` (`x`, `y`, `z`, `world`, `radius`, `height`, `velocity`, "
-                    + "`type_id`, `data`, `owner`, `name`, `packed_allowed`, `last_used`, `flags`) "
+                    + "`type`, `data`, `owner`, `name`, `packed_allowed`, `last_used`, `flags`) "
                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             parameters = new Object[] {
                     field.getX(), field.getY(), field.getZ(), field.getWorld(), field.getRadius(), field.getHeight(), field.getVelocity(),
-                    Helper.getMaterialId(field.getMaterial()), 0, field.getOwner(), field.getName(), field.getPackedAllowed(), Helper.getMillis(),
+                    Helper.getMaterialName(field.getMaterial()), 0, field.getOwner(), field.getName(), field.getPackedAllowed(), Helper.getMillis(),
                     field.getFlagsModule().getFlagsAsString()
             };
         }
@@ -1016,10 +1083,10 @@ public class StorageManager {
      */
     private void insertUnbreakable(Connection conn, Unbreakable ub) throws SQLException {
         Object[] parameters = new Object[] {ub.getX(), ub.getY(), ub.getZ(), ub.getWorld(),
-                ub.getOwner(), Helper.getMaterialId(ub.getMaterial()), 0};
+                ub.getOwner(), Helper.getMaterialName(ub.getMaterial()), 0};
 
         try (PreparedStatement prepStmt = conn.prepareStatement(
-                        "INSERT INTO `pstone_unbreakables` (`x`, `y`, `z`, `world`, `owner`, `type_id`, `data`) "
+                        "INSERT INTO `pstone_unbreakables` (`x`, `y`, `z`, `world`, `owner`, `type`, `data`) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?)")) {
 
             SqlUtils.setArguments(prepStmt, parameters);
@@ -1134,7 +1201,6 @@ public class StorageManager {
 
     /**
      * Insert snitch entry into the database
-     * @param conn 
      *
      * @param snitch
      * @param se
@@ -1345,11 +1411,11 @@ public class StorageManager {
      */
     private void insertBlockGrief(Connection conn, Field field, GriefBlock gb) throws SQLException {
         Object[] parameters = new Object[] {Helper.getMillis(), field.getX(), field.getY(), field.getZ(), field.getWorld(),
-                gb.getX(), gb.getY(), gb.getZ(), Helper.getMaterialId(gb.getType()), 0, gb.getSignText()};
+                gb.getX(), gb.getY(), gb.getZ(), Helper.getMaterialName(gb.getType()), 0, gb.getSignText()};
 
         try (PreparedStatement prepStmt = conn.prepareStatement(
                         "INSERT INTO `pstone_grief_undo` (`date_griefed`, `field_x`, `field_y`, `field_z`, `world`, "
-                        + "`x`, `y`, `z`, `type_id`, `data`, `sign_text`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        + "`x`, `y`, `z`, `type`, `data`, `sign_text`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
 
             SqlUtils.setArguments(prepStmt, parameters);
             synchronized (this) {
@@ -1370,6 +1436,7 @@ public class StorageManager {
         }
 
         Set<Field> workingGrief = new HashSet<>();
+        Map<Integer, Material> migrate = new HashMap<>();
 
         synchronized (pendingGrief) {
             workingGrief.addAll(pendingGrief);
@@ -1394,9 +1461,17 @@ public class StorageManager {
                             int y = resultSet.getInt("y");
                             int z = resultSet.getInt("z");
                             int type_id = resultSet.getInt("type_id");
+                            String typeKey = resultSet.getString("type");
                             String signText = resultSet.getString("sign_text");
 
-                            BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
+                            Material material;
+                            if (typeKey == null || typeKey.isEmpty()) {
+                                material = Helper.getMaterial(type_id);
+                                migrate.put(type_id, material);
+                            } else {
+                                material = Helper.getMaterial(typeKey);
+                            }
+                            BlockTypeEntry type = new BlockTypeEntry(material);
 
                             GriefBlock gb = new GriefBlock(x, y, z, field.getWorld(), type);
 
@@ -1417,6 +1492,7 @@ public class StorageManager {
                     }
                 }
             }
+            migrateMaterials(conn, "pstone_grief_undo", migrate);
         } catch (SQLException ex) {
             ex.printStackTrace();
         } finally {
@@ -1744,6 +1820,7 @@ public class StorageManager {
      */
     public Queue<TranslocationBlock> retrieveClearTranslocation(Field field) {
         Queue<TranslocationBlock> out = new LinkedList<>();
+        Map<Integer, Material> migrate = new HashMap<>();
 
         try (Connection conn = getConnection();
                 PreparedStatement prepStmt = conn.prepareStatement(
@@ -1764,10 +1841,18 @@ public class StorageManager {
                         location = location.add(field.getLocation());
 
                         int type_id = resultSet.getInt("type_id");
+                        String typeKey = resultSet.getString("type");
                         String signText = resultSet.getString("sign_text");
                         String contents = resultSet.getString("contents");
 
-                        BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
+                        Material material;
+                        if (typeKey == null || typeKey.isEmpty()) {
+                            material = Helper.getMaterial(type_id);
+                            migrate.put(type_id, material);
+                        } else {
+                            material = Helper.getMaterial(typeKey);
+                        }
+                        BlockTypeEntry type = new BlockTypeEntry(material);
 
                         TranslocationBlock tb = new TranslocationBlock(location, type);
 
@@ -1783,6 +1868,7 @@ public class StorageManager {
                 }
             }
             clearTranslocation(conn, field);
+            migrateMaterials(conn, "pstone_storedblocks", migrate);
 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -1799,6 +1885,7 @@ public class StorageManager {
      */
     public Queue<TranslocationBlock> retrieveTranslocation(Field field) {
         Queue<TranslocationBlock> out = new LinkedList<>();
+        Map<Integer, Material> migrate = new HashMap<>();
 
         try (Connection conn = getConnection();
                 PreparedStatement prepStmt = conn.prepareStatement(
@@ -1819,10 +1906,18 @@ public class StorageManager {
                         location = location.add(field.getLocation());
 
                         int type_id = resultSet.getInt("type_id");
+                        String typeKey = resultSet.getString("type");
                         String signText = resultSet.getString("sign_text");
                         String contents = resultSet.getString("contents");
 
-                        BlockTypeEntry type = new BlockTypeEntry(Helper.getMaterial(type_id));
+                        Material material;
+                        if (typeKey == null || typeKey.isEmpty()) {
+                            material = Helper.getMaterial(type_id);
+                            migrate.put(type_id, material);
+                        } else {
+                            material = Helper.getMaterial(typeKey);
+                        }
+                        BlockTypeEntry type = new BlockTypeEntry(material);
 
                         TranslocationBlock tb = new TranslocationBlock(location, type);
 
@@ -1838,9 +1933,10 @@ public class StorageManager {
                 }
             }
             applyTranslocation(conn, field);
+            migrateMaterials(conn, "pstone_storedblocks", migrate);
         } catch (SQLException ex) {
             ex.printStackTrace();
-        }        
+        }
         return out;
     }
 
@@ -2095,11 +2191,11 @@ public class StorageManager {
         int updateCount = 0;
         try (Connection conn = getConnection();
                 PreparedStatement prepStmt = conn.prepareStatement(
-                        "DELETE FROM `pstone_storedblocks` WHERE `player_name` = ? AND `name` = ? AND `type_id` = ?")) {
+                        "DELETE FROM `pstone_storedblocks` WHERE `player_name` = ? AND `name` = ? AND `type` = ?")) {
 
             prepStmt.setString(1, playerName);
             prepStmt.setString(2, name);
-            prepStmt.setInt(3, Helper.getMaterialId(block.getMaterial()));
+            prepStmt.setString(3, Helper.getMaterialName(block.getMaterial()));
             synchronized (this) {
                 prepStmt.execute();
                 updateCount = prepStmt.getUpdateCount();

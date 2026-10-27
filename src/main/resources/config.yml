@@ -589,7 +589,7 @@ settings:
   use-blockids-in-snitches: false
   use-commands-to-rent: true
   use-permission-based-limits: false
-  version: 14
+  version: 15
 log:
   bypass-pvp: true
   pvp: true

@@ -935,8 +935,16 @@ public class Helper {
         return material;
     }
 
+    public static Material getMaterial(String name) {
+        return Material.getMaterial(name.toUpperCase());
+    }
+
+    public static String getMaterialName(Material material) {
+        return material.name().toLowerCase();
+    }
+
     @SuppressWarnings("deprecation")
-    public static int getMaterialId(Material material) {
+    private static int getMaterialId(Material material) {
         int id = -1;
         try {
             if (materialIdField == null) {

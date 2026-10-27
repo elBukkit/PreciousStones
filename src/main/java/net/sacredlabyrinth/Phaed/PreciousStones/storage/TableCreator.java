@@ -70,6 +70,7 @@ class TableCreator implements AutoCloseable {
 
                 + "`velocity` float default NULL, "
                 + "`type_id` int(11) default NULL, "
+                + "`type` varchar(64) default NULL, "
                 + "`data` tinyint default 0, "
                 + "`owner` varchar(16) NOT NULL, "
                 + "`name` varchar(50) NOT NULL, "
@@ -94,6 +95,7 @@ class TableCreator implements AutoCloseable {
                 + "`height` int(11) default NULL, "
                 + "`velocity` float default NULL, "
                 + "`type_id` int(11) default NULL, "
+                + "`type` varchar(64) default NULL, "
 
                 + "`data` tinyint default 0, "
                 + "`owner` varchar(16) NOT NULL, "
@@ -115,6 +117,7 @@ class TableCreator implements AutoCloseable {
                 + "`world` varchar(25) default NULL, "
                 + "`owner` varchar(16) NOT NULL, "
                 + "`type_id` int(11) default NULL, "
+                + "`type` varchar(64) default NULL, "
                 + "`data` tinyint default 0, "
                 + ((isMySql) ?
                         "UNIQUE KEY `uq_pstone_unbreakables_1` (`x`,`y`,`z`,`world`))"
@@ -133,6 +136,7 @@ class TableCreator implements AutoCloseable {
                 + "`y` int(11) default NULL, "
                 + "`z` int(11) default NULL, "
                 + "`type_id` int(11) NOT NULL, "
+                + "`type` varchar(64) default NULL, "
                 + "`data` TINYINT NOT NULL, "
                 + "`sign_text` varchar(75) NOT NULL)");
     }
@@ -161,6 +165,7 @@ class TableCreator implements AutoCloseable {
                 + "`z` int(11) default NULL, "
                 + "`world` varchar(25) NOT NULL, "
                 + "`type_id` int(11) NOT NULL, "
+                + "`type` varchar(64) default NULL, "
                 + "`data` TINYINT NOT NULL, "
                 + "`sign_text` varchar(75) NOT NULL, "
                 + "`applied` bit default 0, "
@@ -260,6 +265,8 @@ class TableCreator implements AutoCloseable {
             execute("ALTER TABLE `pstone_storedblocks` ADD INDEX `indx_storedblocks_1` (`name`, `player_name`, `applied`)");
 
             execute("ALTER TABLE `pstone_storedblocks` ADD INDEX `indx_storedblocks_2` (`name`, `player_name`, `applied`, `type_id`, `data`)");
+
+            execute("ALTER TABLE `pstone_storedblocks` ADD INDEX `indx_storedblocks_3` (`name`, `player_name`, `applied`, `type`, `data`)");
         } else {
             execute("CREATE INDEX IF NOT EXISTS `indx_field_owner` ON `pstone_fields` (`owner`)");
 
@@ -294,6 +301,28 @@ class TableCreator implements AutoCloseable {
 
         if (!getDataType("pstone_unbreakables", "data").equals("tinyint")) {
             execute("alter table pstone_unbreakables add column data tinyint default 0");
+        }
+    }
+
+    void addType() throws SQLException {
+        if (!getDataType("pstone_fields", "type").equals("varchar")) {
+            execute("alter table pstone_fields add column type varchar(64) default NULL");
+        }
+
+        if (!getDataType("pstone_cuboids", "type").equals("varchar")) {
+            execute("alter table pstone_cuboids add column type varchar(64) default NULL");
+        }
+
+        if (!getDataType("pstone_unbreakables", "type").equals("varchar")) {
+            execute("alter table pstone_unbreakables add column type varchar(64) default NULL");
+        }
+
+        if (!getDataType("pstone_grief_undo", "type").equals("varchar")) {
+            execute("alter table pstone_grief_undo add column type varchar(64) default NULL");
+        }
+
+        if (!getDataType("pstone_storedblocks", "type").equals("varchar")) {
+            execute("alter table pstone_storedblocks add column type varchar(64) default NULL");
         }
     }
 
