@@ -168,7 +168,7 @@ public final class ForesterManager {
                     }
 
                     // create tree
-                    floor.setType(Material.GRASS);
+                    floor.setType(Material.DIRT);
                     block.setType(Material.AIR);
                     world.generateTree(block.getLocation(), getTree(field.getSettings()));
                 }
