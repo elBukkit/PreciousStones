@@ -9,6 +9,7 @@ import net.sacredlabyrinth.Phaed.PreciousStones.field.FieldSettings;
 import net.sacredlabyrinth.Phaed.PreciousStones.helpers.Helper;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -530,17 +531,21 @@ public final class SettingsManager {
     }
 
     public boolean isHarmfulPotion(PotionEffectType pot) {
-        return pot.equals(PotionEffectType.BLINDNESS) ||
-        		pot.equals(PotionEffectType.CONFUSION) ||
-        		pot.equals(PotionEffectType.HARM) ||
-        		pot.equals(PotionEffectType.HUNGER) ||
-        		pot.equals(PotionEffectType.INCREASE_DAMAGE) ||
-        		pot.equals(PotionEffectType.POISON) ||
-        		pot.equals(PotionEffectType.SLOW) ||
-                pot.equals(PotionEffectType.SLOW_DIGGING) ||
-                pot.equals(PotionEffectType.UNLUCK) ||
-                pot.equals(PotionEffectType.WEAKNESS);
+        NamespacedKey typeKey = pot.getKeyOrNull();
+        if (typeKey == null) return false;
+        String type = typeKey.getKey();
 
+        return (type.equals("blindness") ||
+                type.equals("confusion") ||
+                type.equals("hunger") ||
+                type.equals("harm") ||
+                type.equals("poison") ||
+                type.equals("weakness") || type.equals("increase_damage") ||
+                type.equals("slow") || type.equals("slowness") ||
+                type.equals("slow_digging") || type.equals("mining_fatigue") ||
+                type.equals("unluck") ||
+                type.equals("wither")
+        );
     }
 
     public boolean isCrop(Block block) {
@@ -680,7 +685,6 @@ public final class SettingsManager {
     /**
      * Get the new location a block moved by a piston will have
      *
-     * @param type
      * @return
      */
     public Location getMovedToLocation(Location loc, BlockFace to) {

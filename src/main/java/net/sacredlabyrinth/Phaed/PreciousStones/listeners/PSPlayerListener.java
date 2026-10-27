@@ -1400,15 +1400,15 @@ public class PSPlayerListener implements Listener {
 	 */
 	@EventHandler(priority = EventPriority.HIGH)
 	public void onPotionSplash(PotionSplashEvent event) {
-		boolean hasHarm = false;
 
 		ThrownPotion potion = event.getPotion();
 		Collection<PotionEffect> effects = potion.getEffects();
 
+		boolean hasHarm = false;
 		for (PotionEffect effect : effects) {
-			if (effect.getType().equals(PotionEffectType.BLINDNESS) || effect.getType().equals(PotionEffectType.CONFUSION) || effect.getType().equals(PotionEffectType.HARM) || effect.getType().equals(PotionEffectType.POISON) || effect.getType().equals(PotionEffectType.WEAKNESS)
-					|| effect.getType().equals(PotionEffectType.SLOW) || effect.getType().equals(PotionEffectType.SLOW_DIGGING)) {
+			if (plugin.getSettingsManager().isHarmfulPotion(effect.getType())) {
 				hasHarm = true;
+				break;
 			}
 		}
 
